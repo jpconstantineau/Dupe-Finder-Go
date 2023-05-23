@@ -269,7 +269,7 @@ func main() {
 	go gethash(hashchann, filechann)
 	go gethash(hashchann, filechann)
 	go printfile(filechann, resultschann, false)
-	go savefile(resultschann, false, true)
+	go savefile(resultschann, true, true)
 
 	err = filepath.Walk(inputVar, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
