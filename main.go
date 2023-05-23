@@ -68,7 +68,7 @@ func gethash(cin chan filemsg, cout chan filemsg) {
 func printfile(c chan filemsg, cout chan filemsg) {
 	for {
 		data := <-c
-		fmt.Printf("File : %s\n Name: %s\n Extension: %s\n Size: %v\n Hash: %s\n ATIME: %s\n CTIME: %s\n MTIME: %s\n BTIME: %s\n\n", data.path, data.name, data.ext, data.size, data.hash, data.atime.Format("01-02-2006 15:04:05"), data.ctime.Format("01-02-2006 15:04:05"), data.mtime.Format("01-02-2006 15:04:05"), data.btime.Format("01-02-2006 15:04:05"))
+		//fmt.Printf("File : %s\n Name: %s\n Extension: %s\n Size: %v\n Hash: %s\n ATIME: %s\n CTIME: %s\n MTIME: %s\n BTIME: %s\n\n", data.path, data.name, data.ext, data.size, data.hash, data.atime.Format("01-02-2006 15:04:05"), data.ctime.Format("01-02-2006 15:04:05"), data.mtime.Format("01-02-2006 15:04:05"), data.btime.Format("01-02-2006 15:04:05"))
 		cout <- data
 	}
 }
@@ -76,7 +76,7 @@ func printfile(c chan filemsg, cout chan filemsg) {
 func printfolder(c chan foldermsg) {
 	for {
 		data := <-c
-		fmt.Printf("Folder : %s\n", data.name)
+		//fmt.Printf("Folder : %s\n", data.name)
 	}
 }
 
