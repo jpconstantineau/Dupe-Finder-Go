@@ -163,7 +163,7 @@ func insert(db *sql.DB, fl filemsg) error {
 	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, fl.host, fl.path, fl.name, fl.ext, fl.hash, fl.size, fl.ctime, fl.mtime, fl.atime, fl.btime)
 	if err != nil {
-		log.Printf("Error %s when inserting row into products table", err)
+		log.Printf("Error %s when inserting row into files table", err)
 		return err
 	}
 	rows, err := res.RowsAffected()
@@ -171,7 +171,7 @@ func insert(db *sql.DB, fl filemsg) error {
 		log.Printf("Error %s when finding rows affected", err)
 		return err
 	}
-	log.Printf("%d products created ", rows)
+	log.Printf("%d file created: %s", rows, fl.name)
 	return nil
 }
 
@@ -269,7 +269,7 @@ func main() {
 	go gethash(hashchann, filechann)
 	go gethash(hashchann, filechann)
 	go printfile(filechann, resultschann, false)
-	go savefile(resultschann, true, true)
+	go savefile(resultschann, true, false)
 
 	err = filepath.Walk(inputVar, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
