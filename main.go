@@ -38,6 +38,13 @@ type foldermsg struct {
 	btime time.Time
 }
 
+const (
+	username = "root"
+	password = ""
+	hostname = "127.0.0.1:3306"
+	dbname   = "dupedb"
+)
+
 func gethash(cin chan filemsg, cout chan filemsg) {
 	for {
 		data := <-cin
@@ -53,16 +60,16 @@ func gethash(cin chan filemsg, cout chan filemsg) {
 			log.Fatal(err)
 		}
 
-		//data.hash = data.hash
 		data.hash = fmt.Sprintf("%x", h.Sum(nil))
 		cout <- data
 	}
 }
 
-func printfile(c chan filemsg) {
+func printfile(c chan filemsg, cout chan filemsg) {
 	for {
 		data := <-c
 		fmt.Printf("File : %s\n Name: %s\n Extension: %s\n Size: %v\n Hash: %s\n ATIME: %s\n CTIME: %s\n MTIME: %s\n BTIME: %s\n\n", data.path, data.name, data.ext, data.size, data.hash, data.atime.Format("01-02-2006 15:04:05"), data.ctime.Format("01-02-2006 15:04:05"), data.mtime.Format("01-02-2006 15:04:05"), data.btime.Format("01-02-2006 15:04:05"))
+		cout <- data
 	}
 }
 
@@ -72,13 +79,6 @@ func printfolder(c chan foldermsg) {
 		fmt.Printf("Folder : %s\n", data.name)
 	}
 }
-
-const (
-	username = "root"
-	password = ""
-	hostname = "127.0.0.1:3306"
-	dbname   = "dupedb"
-)
 
 func dsn(dbName string) string {
 	return fmt.Sprintf("%s:%s@tcp(%s)/%s", username, password, hostname, dbName)
@@ -90,7 +90,6 @@ func dbConnection() (*sql.DB, error) {
 		log.Printf("Error %s when opening DB\n", err)
 		return nil, err
 	}
-	//defer db.Close()
 
 	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelfunc()
@@ -112,7 +111,6 @@ func dbConnection() (*sql.DB, error) {
 		log.Printf("Error %s when opening DB", err)
 		return nil, err
 	}
-	//defer db.Close()
 
 	db.SetMaxOpenConns(20)
 	db.SetMaxIdleConns(20)
@@ -146,6 +144,53 @@ func createFileTable(db *sql.DB) error {
 	}
 	log.Printf("Rows affected when creating table: %d", rows)
 	return nil
+}
+
+func insert(db *sql.DB, fl filemsg) error {
+	query := "INSERT INTO product(product_name, product_price) VALUES (?, ?)"
+	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelfunc()
+	stmt, err := db.PrepareContext(ctx, query)
+	if err != nil {
+		log.Printf("Error %s when preparing SQL statement", err)
+		return err
+	}
+	defer stmt.Close()
+	res, err := stmt.ExecContext(ctx, fl.name, fl.size, fl.ext, fl.hash, fl.path)
+	if err != nil {
+		log.Printf("Error %s when inserting row into products table", err)
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("Error %s when finding rows affected", err)
+		return err
+	}
+	log.Printf("%d products created ", rows)
+	return nil
+}
+
+func savefile(c chan filemsg) {
+
+	db, err := dbConnection()
+	if err != nil {
+		log.Printf("Error %s when getting db connection", err)
+		return
+	}
+	defer db.Close()
+	log.Printf("Successfully connected to database")
+
+	for {
+		data := <-c
+
+		/*	err := insert(db, data)
+			if err != nil {
+				log.Printf("Insert product failed with error %s", err)
+				return
+			}*/
+
+		fmt.Printf("FileDB : %s\n\n", data.path)
+	}
 }
 
 func main() {
@@ -197,13 +242,15 @@ func main() {
 
 	folderchann := make(chan foldermsg)
 	filechann := make(chan filemsg)
+	resultschann := make(chan filemsg)
 	hashchann := make(chan filemsg, 3)
 
 	go printfolder(folderchann)
 	go gethash(hashchann, filechann)
 	go gethash(hashchann, filechann)
 	go gethash(hashchann, filechann)
-	go printfile(filechann)
+	go printfile(filechann, resultschann)
+	go savefile(resultschann)
 
 	err = filepath.Walk(inputVar, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
