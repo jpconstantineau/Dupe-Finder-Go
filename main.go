@@ -76,7 +76,7 @@ func printfile(c chan filemsg, cout chan filemsg) {
 func printfolder(c chan foldermsg) {
 	for {
 		data := <-c
-		//fmt.Printf("Folder : %s\n", data.name)
+		fmt.Printf("Folder : %s\n", data.name)
 	}
 }
 
