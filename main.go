@@ -18,6 +18,7 @@ import (
 )
 
 type filemsg struct {
+	host  string
 	path  string
 	name  string
 	ext   string
@@ -65,18 +66,22 @@ func gethash(cin chan filemsg, cout chan filemsg) {
 	}
 }
 
-func printfile(c chan filemsg, cout chan filemsg) {
+func printfile(c chan filemsg, cout chan filemsg, display bool) {
 	for {
 		data := <-c
-		//fmt.Printf("File : %s\n Name: %s\n Extension: %s\n Size: %v\n Hash: %s\n ATIME: %s\n CTIME: %s\n MTIME: %s\n BTIME: %s\n\n", data.path, data.name, data.ext, data.size, data.hash, data.atime.Format("01-02-2006 15:04:05"), data.ctime.Format("01-02-2006 15:04:05"), data.mtime.Format("01-02-2006 15:04:05"), data.btime.Format("01-02-2006 15:04:05"))
+		if display {
+			fmt.Printf("File : %s\n Name: %s\n Extension: %s\n Size: %v\n Hash: %s\n ATIME: %s\n CTIME: %s\n MTIME: %s\n BTIME: %s\n\n", data.path, data.name, data.ext, data.size, data.hash, data.atime.Format("01-02-2006 15:04:05"), data.ctime.Format("01-02-2006 15:04:05"), data.mtime.Format("01-02-2006 15:04:05"), data.btime.Format("01-02-2006 15:04:05"))
+		}
 		cout <- data
 	}
 }
 
-func printfolder(c chan foldermsg) {
+func printfolder(c chan foldermsg, display bool) {
 	for {
 		data := <-c
-		fmt.Printf("Folder : %s\n", data.name)
+		if display {
+			fmt.Printf("Folder : %s\n", data.name)
+		}
 	}
 }
 
@@ -128,8 +133,8 @@ func dbConnection() (*sql.DB, error) {
 }
 
 func createFileTable(db *sql.DB) error {
-	query := `CREATE TABLE IF NOT EXISTS files(file_id int primary key auto_increment, product_name text, 
-        product_price int, created_at datetime default CURRENT_TIMESTAMP, updated_at datetime default CURRENT_TIMESTAMP)`
+	query := `CREATE TABLE IF NOT EXISTS files(ID BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, host varchar(32) not null, path varchar(255) not null, name varchar(255) not null, extension varchar(32), hash varchar(255), size BIGINT, created DATETIME, modified DATETIME, accessed DATETIME, birth DATETIME);`
+
 	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelfunc()
 	res, err := db.ExecContext(ctx, query)
@@ -147,7 +152,7 @@ func createFileTable(db *sql.DB) error {
 }
 
 func insert(db *sql.DB, fl filemsg) error {
-	query := "INSERT INTO product(product_name, product_price) VALUES (?, ?)"
+	query := "INSERT INTO product(host, path, name, extension, hash, size, created, modified, accessed, birth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelfunc()
 	stmt, err := db.PrepareContext(ctx, query)
@@ -156,7 +161,7 @@ func insert(db *sql.DB, fl filemsg) error {
 		return err
 	}
 	defer stmt.Close()
-	res, err := stmt.ExecContext(ctx, fl.name, fl.size, fl.ext, fl.hash, fl.path)
+	res, err := stmt.ExecContext(ctx, fl.host, fl.path, fl.name, fl.ext, fl.hash, fl.size, fl.ctime, fl.mtime, fl.atime, fl.btime)
 	if err != nil {
 		log.Printf("Error %s when inserting row into products table", err)
 		return err
@@ -170,7 +175,7 @@ func insert(db *sql.DB, fl filemsg) error {
 	return nil
 }
 
-func savefile(c chan filemsg) {
+func savefile(c chan filemsg, save bool, display bool) {
 
 	db, err := dbConnection()
 	if err != nil {
@@ -183,18 +188,29 @@ func savefile(c chan filemsg) {
 	for {
 		data := <-c
 
-		/*	err := insert(db, data)
+		if save {
+			err := insert(db, data)
 			if err != nil {
 				log.Printf("Insert product failed with error %s", err)
 				return
-			}*/
+			}
 
-		fmt.Printf("FileDB : %s\n\n", data.path)
+		}
+		if display {
+			fmt.Printf("FileDB : %s\n\n", data.path)
+		}
 	}
 }
 
 func main() {
 	fmt.Println("DupeFinder Starting Up")
+
+	hostname, err := os.Hostname()
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	db, err := dbConnection()
 	if err != nil {
@@ -236,8 +252,11 @@ func main() {
 	fmt.Println("DupeFinder Completed Setting Up Database")
 
 	var inputVar string
+	var hostnameVar string
 
 	flag.StringVar(&inputVar, "path", ".", "path to scan")
+	flag.StringVar(&hostnameVar, "host", hostname, "path to scan")
+
 	flag.Parse()
 
 	folderchann := make(chan foldermsg)
@@ -245,12 +264,12 @@ func main() {
 	resultschann := make(chan filemsg)
 	hashchann := make(chan filemsg, 3)
 
-	go printfolder(folderchann)
+	go printfolder(folderchann, true)
 	go gethash(hashchann, filechann)
 	go gethash(hashchann, filechann)
 	go gethash(hashchann, filechann)
-	go printfile(filechann, resultschann)
-	go savefile(resultschann)
+	go printfile(filechann, resultschann, false)
+	go savefile(resultschann, false, true)
 
 	err = filepath.Walk(inputVar, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -292,7 +311,7 @@ func main() {
 			msg := foldermsg{abs_fname, info.Name(), atime, mtime, ctime, btime}
 			folderchann <- msg
 		} else {
-			msg := filemsg{abs_fname, info.Name(), ext, info.Size(), atime, mtime, ctime, btime, ""}
+			msg := filemsg{hostnameVar, abs_fname, info.Name(), ext, info.Size(), atime, mtime, ctime, btime, ""}
 			hashchann <- msg
 		}
 		return nil
