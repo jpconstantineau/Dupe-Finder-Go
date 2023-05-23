@@ -139,7 +139,7 @@ func createFileTable(db *sql.DB) error {
 	defer cancelfunc()
 	res, err := db.ExecContext(ctx, query)
 	if err != nil {
-		log.Printf("Error %s when creating product table", err)
+		log.Printf("Error %s when creating files table", err)
 		return err
 	}
 	rows, err := res.RowsAffected()
@@ -152,7 +152,7 @@ func createFileTable(db *sql.DB) error {
 }
 
 func insert(db *sql.DB, fl filemsg) error {
-	query := "INSERT INTO product(host, path, name, extension, hash, size, created, modified, accessed, birth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	query := "INSERT INTO files(host, path, name, extension, hash, size, created, modified, accessed, birth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelfunc()
 	stmt, err := db.PrepareContext(ctx, query)
