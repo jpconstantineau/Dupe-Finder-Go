@@ -85,6 +85,7 @@ func dsn(dbName string) string {
 }
 
 func main() {
+	fmt.Println("Starting Up")
 
 	db, err := sql.Open("mysql", dsn(""))
 	if err != nil {
