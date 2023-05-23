@@ -133,7 +133,7 @@ func dbConnection() (*sql.DB, error) {
 }
 
 func createFileTable(db *sql.DB) error {
-	query := `CREATE TABLE IF NOT EXISTS files(ID BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, host varchar(32) not null, path varchar(255) not null, name varchar(255) not null, extension varchar(32), hash varchar(255), size BIGINT, created DATETIME, modified DATETIME, accessed DATETIME, birth DATETIME);`
+	query := `CREATE TABLE IF NOT EXISTS files(ID BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, host varchar(32) not null, path varchar(1023) not null, name varchar(255) not null, extension varchar(32), hash varchar(255), size BIGINT, created DATETIME, modified DATETIME, accessed DATETIME, birth DATETIME);`
 
 	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelfunc()
